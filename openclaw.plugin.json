@@ -1,0 +1,31 @@
+{
+  "id": "wecom",
+  "channels": ["wecom"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": { "type": "boolean", "description": "是否启用 WeCom 渠道" },
+      "name": { "type": "string", "description": "默认账号显示名" },
+      "corpId": { "type": "string", "description": "企业微信 Corp ID" },
+      "corpSecret": { "type": "string", "description": "企业微信 Corp Secret" },
+      "agentId": { "type": "integer", "description": "企业微信 Agent ID" },
+      "callbackToken": { "type": "string", "description": "回调 Token" },
+      "callbackAesKey": { "type": "string", "description": "回调 AES Key" },
+      "webhookPath": {
+        "type": "string",
+        "description": "Webhook 路径",
+        "default": "/wecom/callback"
+      },
+      "proxyUrl": {
+        "type": "string",
+        "description": "代理地址（等价环境变量 WECOM_PROXY_URL）"
+      },
+      "historyLimit": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "对话历史上限（默认 20）"
+      }
+    }
+  }
+}

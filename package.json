@@ -1,0 +1,41 @@
+{
+  "name": "@openclaw/wecom",
+  "version": "2026.3.2",
+  "private": true,
+  "type": "module",
+  "description": "WeCom (企业微信) channel plugin for OpenClaw.",
+  "license": "Apache 2.0",
+  "exports": "./index.ts",
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "channel": {
+      "id": "wecom",
+      "label": "WeCom",
+      "selectionLabel": "WeCom (企业微信自建应用)",
+      "docsPath": "/channels/wecom",
+      "docsLabel": "wecom",
+      "blurb": "企业微信/WeCom enterprise messaging with doc/wiki tools.",
+      "order": 60,
+      "aliases": [
+        "wecom",
+        "qyapi",
+        "wework",
+        "qiwei",
+        "wxwork"
+      ]
+    }
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.4.2",
+    "undici": "^7.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "typescript": "^5.9.2"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}
