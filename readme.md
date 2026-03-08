@@ -7,7 +7,8 @@
 - Webhook 入站 + API 出站
 - 文本/图片/文件/视频/语音消息
 - 语音文件自动转 `amr` 后发送
-- 可配置代理（`proxyUrl` / `WECOM_PROXY_URL`）
+- 可配置代理模式（`proxyMode` / `WECOM_PROXY_MODE`）
+- 可配置代理地址（`proxyUrl` / `WECOM_PROXY_URL`）
 - 可配置历史上限（`historyLimit` / `WECOM_HISTORY_LIMIT`）
 
 ---
@@ -52,6 +53,7 @@ src/
 			"callbackToken": "callback-token",
 			"callbackAesKey": "callback-aes-key",
 			"webhookPath": "/wecom/callback",
+			"proxyMode": "forward",
 			"proxyUrl": "http://127.0.0.1:7890",
 			"historyLimit": 20
 		}
@@ -69,8 +71,14 @@ src/
 - `WECOM_CALLBACK_TOKEN`
 - `WECOM_CALLBACK_AES_KEY`
 - `WECOM_WEBHOOK_PATH`（默认 `/wecom/callback`）
+- `WECOM_PROXY_MODE`（`forward` 或 `reverse`，默认 `forward`）
 - `WECOM_PROXY_URL`（兼容 `WECOM_PROXY` / `HTTPS_PROXY`）
 - `WECOM_HISTORY_LIMIT`（默认 `20`）
+
+### 2.3 代理模式说明
+
+- `forward`：`proxyUrl` 填写标准正向代理地址，例如 `http://127.0.0.1:7890` 或 `https://proxy.example.com`。
+- `reverse`：`proxyUrl` 填写反向代理基地址，例如 `https://proxy.example.com/proxy/`，插件会把企业微信 API 请求改写到该前缀下。
 
 ---
 

@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { buildBaseChannelStatusSummary, createDefaultChannelRuntimeState } from "openclaw/plugin-sdk";
+import { configureWecomProxy } from "./wecom-api/fetch.ts";
 
 export function createWecomChannelPlugin({ deliveryHandlers }) {
   const defaultAccountId = "default";
@@ -26,6 +27,7 @@ export function createWecomChannelPlugin({ deliveryHandlers }) {
       name: root?.name,
       corpId: root?.corpId,
       webhookPath: root?.webhookPath || "/wecom/callback",
+      proxyMode: root?.proxyMode || "forward",
       proxyUrl: root?.proxyUrl,
       historyLimit: root?.historyLimit,
       callbackToken: root?.callbackToken,
@@ -69,6 +71,7 @@ export function createWecomChannelPlugin({ deliveryHandlers }) {
           callbackToken: { type: "string" },
           callbackAesKey: { type: "string" },
           webhookPath: { type: "string" },
+          proxyMode: { type: "string", enum: ["forward", "reverse"] },
           proxyUrl: { type: "string" },
           historyLimit: { type: "integer", minimum: 0 },
         },
@@ -120,6 +123,7 @@ export function createWecomChannelPlugin({ deliveryHandlers }) {
         name: account.name,
         corpId: account.corpId,
         webhookPath: account.webhookPath,
+        proxyMode: account.proxyMode,
         proxyUrl: account.proxyUrl,
         historyLimit: account.historyLimit,
       }),
@@ -172,6 +176,21 @@ export function createWecomChannelPlugin({ deliveryHandlers }) {
       startAccount: async (ctx) => {
         const accountId = ctx?.accountId || defaultAccountId;
         const account = ctx?.account;
+        const proxyConfigResult = configureWecomProxy({
+          proxyMode: account?.proxyMode,
+          proxyUrl: account?.proxyUrl,
+        });
+
+        if (proxyConfigResult?.ok && proxyConfigResult.proxyUrl) {
+          ctx?.log?.info?.(
+            `[${accountId}] wecom proxy configured (mode=${proxyConfigResult.proxyMode}, url=${proxyConfigResult.proxyUrl})`
+          );
+        } else if (proxyConfigResult?.ok === false) {
+          ctx?.log?.warn?.(
+            `[${accountId}] wecom invalid proxy config ignored (mode=${proxyConfigResult.proxyMode}, url=${account?.proxyUrl})`
+          );
+        }
+
         ctx?.setStatus?.({
           accountId,
           mode: "webhook",
