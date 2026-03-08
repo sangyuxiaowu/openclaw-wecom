@@ -20,7 +20,7 @@ export function markdownToWecomText(markdown) {
   text = text.replace(/___([^_]+)___/g, "$1");
   text = text.replace(/__([^_]+)__/g, "$1");
   text = text.replace(/_([^_]+)_/g, "$1");
-  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1 ($2)");
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
   text = text.replace(/^[\*\-] /gm, "• ");
   text = text.replace(/^[-*_]{3,}$/gm, "────────────");
   text = text.replace(/!\[([^\]]*)\]\([^)]+\)/g, "[图片: $1]");
