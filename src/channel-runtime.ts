@@ -14,7 +14,6 @@ import { createWecomConfigService } from "./config.ts";
 import { createInboundMessageProcessor } from "./inbound.ts";
 import { fetchMediaFromUrl, resolveWecomMediaType } from "./messaging/media-utils.ts";
 import { createWecomDeliveryHandlers } from "./outbound.ts";
-import { createWecomChannelPlugin } from "./channel-plugin.ts";
 import { fetchAccessToken, sendApiMessage, uploadApiMedia, downloadApiMedia } from "./wecom-api/client.ts";
 import { createWecomMessagingService } from "./wecom-api/service.ts";
 
@@ -65,8 +64,6 @@ export function createWecomChannelRuntime({ pluginVersion, execFileAsync }) {
     sendWecomText,
   });
 
-  const wecomChannelPlugin = createWecomChannelPlugin({ deliveryHandlers });
-
   const sessionHistories = new Map();
   const resolvedConfig = getWecomConfig();
   const configuredHistoryLimit = resolvedConfig?.historyLimit;
@@ -112,7 +109,7 @@ export function createWecomChannelRuntime({ pluginVersion, execFileAsync }) {
       gatewayRuntime = runtime;
     },
     getWecomConfig,
-    wecomChannelPlugin,
+    deliveryHandlers,
     processInboundMessage,
   };
 }

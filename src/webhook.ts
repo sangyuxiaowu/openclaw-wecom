@@ -14,7 +14,7 @@ function asText(value) {
   return "";
 }
 
-export function registerWecomWebhookRoute({
+export function registerWecomWebhookRoutes({
   api,
   cfg,
   getWecomConfig,
@@ -23,8 +23,9 @@ export function registerWecomWebhookRoute({
   decryptWecom,
   readRequestBody,
   parseIncomingXml,
+  webhookPathOverride,
 }) {
-  const configuredWebhookPath = api?.config?.channels?.wecom?.webhookPath;
+  const configuredWebhookPath = webhookPathOverride ?? api?.config?.channels?.wecom?.webhookPath;
   const webhookPath = configuredWebhookPath ?? cfg?.webhookPath;
   const normalizedPath = normalizePluginHttpPath(webhookPath, "/wecom/callback") ?? "/wecom/callback";
   const defaultPath = "/wecom/callback";
@@ -169,20 +170,8 @@ export function registerWecomWebhookRoute({
     }
   };
 
-  for (const routePath of routePaths) {
-    if (typeof api?.registerHttpRoute === "function") {
-      api.registerHttpRoute({
-        path: routePath,
-        match: "exact",
-        auth: "plugin",
-        replaceExisting: true,
-        handler,
-      });
-      api.logger.info?.(`wecom: registered webhook route via api.registerHttpRoute at ${routePath}`);
-      continue;
-    }
-
-    registerPluginHttpRoute({
+  const unregisters = routePaths.map((routePath) => {
+    const unregister = registerPluginHttpRoute({
       path: routePath,
       fallbackPath: routePath,
       match: "exact",
@@ -194,6 +183,16 @@ export function registerWecomWebhookRoute({
       log: (msg) => api.logger.info?.(msg),
       handler,
     });
-    api.logger.info?.(`wecom: registered webhook route via registerPluginHttpRoute at ${routePath}`);
-  }
+    api.logger.info?.(`wecom: registered webhook route at ${routePath}`);
+    return () => {
+      unregister();
+      api.logger.info?.(`wecom: unregistered webhook route at ${routePath}`);
+    };
+  });
+
+  return () => {
+    for (const unregister of unregisters) {
+      unregister();
+    }
+  };
 }

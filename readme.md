@@ -80,6 +80,11 @@ src/
 - `forward`：`proxyUrl` 填写标准正向代理地址，例如 `http://127.0.0.1:7890` 或 `https://proxy.example.com`。
 - `reverse`：`proxyUrl` 填写反向代理基地址，例如 `https://proxy.example.com/proxy/`，插件会把企业微信 API 请求改写到该前缀下。
 
+### 2.4 热重载说明
+
+- 修改 `proxyMode`、`proxyUrl`、`webhookPath` 后，通道热重载会重新应用配置，无需整网关重启。
+- `webhookPath` 变更后，插件会在通道重启时注销旧路由并注册新路由。
+
 ---
 
 ## 3. Webhook 与企业微信配置
@@ -95,6 +100,26 @@ src/
 插件会进行：
 - `GET` 验签 + `echostr` 解密回包
 - `POST` 消息验签 + 解密 + 分发
+
+### 3.1 Nginx 反向代理示例
+
+当 `proxyMode = "reverse"` 且 `proxyUrl = "https://proxy.example.com/proxy/"` 时，可使用类似下面的 nginx 配置：
+
+```nginx
+location /proxy/ {
+	proxy_pass https://qyapi.weixin.qq.com/;
+	proxy_ssl_server_name on;
+	proxy_set_header Host qyapi.weixin.qq.com;
+	proxy_set_header X-Forwarded-Proto $scheme;
+	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+```
+
+注意：
+
+- `proxy_pass` 末尾要带 `/`，这样 `/proxy/cgi-bin/...` 才会正确映射为 `/cgi-bin/...`。
+- 不要把 `proxyUrl` 配成带业务路径校验的正向代理地址；`reverse` 模式下它表示反向代理前缀。
+- 如果 nginx 开了访问日志，企业微信 API 请求应表现为对 `/proxy/cgi-bin/...` 的访问。
 
 ---
 

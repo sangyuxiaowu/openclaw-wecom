@@ -4,10 +4,11 @@ import { promisify } from "node:util";
 import { createRequire } from "node:module";
 import { computeMsgSignature, decryptWecom } from "./messaging/wecom-crypto.ts";
 import { parseIncomingXml, readRequestBody } from "./messaging/wecom-xml.ts";
-import { registerWecomWebhookRoute } from "./webhook.ts";
+import { registerWecomWebhookRoutes } from "./webhook.ts";
 import { setGatewayBroadcastContext } from "./transport.ts";
 import { registerWecomGatewayMethods } from "./register-gateway.ts";
 import { createWecomChannelRuntime } from "./channel-runtime.ts";
+import { createWecomChannelPlugin } from "./channel-plugin.ts";
 import { configureWecomProxy } from "./wecom-api/fetch.ts";
 
 const _require = createRequire(import.meta.url);
@@ -18,14 +19,36 @@ const execFileAsync = promisify(execFile);
 const {
   setGatewayRuntime,
   getWecomConfig,
-  wecomChannelPlugin,
+  deliveryHandlers,
   processInboundMessage,
 } = createWecomChannelRuntime({
   pluginVersion: PLUGIN_VERSION,
   execFileAsync,
 });
 
+const registerWebhookRoutesForAccount = ({ webhookPath }) => {
+  return registerWecomWebhookRoutes({
+    api: gatewayRuntimeApi,
+    cfg: getWecomConfig(gatewayRuntimeApi),
+    getWecomConfig,
+    processInboundMessage,
+    computeMsgSignature,
+    decryptWecom,
+    readRequestBody,
+    parseIncomingXml,
+    webhookPathOverride: webhookPath,
+  });
+};
+
+let gatewayRuntimeApi = null;
+
+const wecomChannelPlugin = createWecomChannelPlugin({
+  deliveryHandlers,
+  registerWebhookRoutesForAccount,
+});
+
 export default function register(api) {
+  gatewayRuntimeApi = api;
   setGatewayRuntime(api.runtime);
 
   // 初始化配置
@@ -54,15 +77,4 @@ export default function register(api) {
   api.registerChannel({ plugin: wecomChannelPlugin });
 
   registerWecomGatewayMethods({ api, setGatewayBroadcastContext });
-
-  registerWecomWebhookRoute({
-    api,
-    cfg,
-    getWecomConfig,
-    processInboundMessage,
-    computeMsgSignature,
-    decryptWecom,
-    readRequestBody,
-    parseIncomingXml,
-  });
 }
