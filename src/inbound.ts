@@ -87,8 +87,8 @@ export function createInboundMessageProcessor(deps) {
     return "";
   }
 
-  return async function processInboundMessage({ api, fromUser, content, msgType, mediaId, picUrl, recognition, thumbMediaId, fileName, fileSize, linkTitle, linkDescription, linkUrl, linkPicUrl, chatId, isGroupChat }) {
-    const config = getWecomConfig(api);
+  return async function processInboundMessage({ api, accountId, fromUser, content, msgType, mediaId, picUrl, recognition, thumbMediaId, fileName, fileSize, linkTitle, linkDescription, linkUrl, linkPicUrl, chatId, isGroupChat }) {
+    const config = getWecomConfig(api, accountId);
     const cfg = api.config;
     const runtime = api.runtime;
 

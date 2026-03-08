@@ -50,8 +50,8 @@ export function createWecomDeliveryHandlers({
         if (!trimmed) return { ok: false, error: new Error("WeCom requires --to <UserId>") };
         return { ok: true, to: trimmed };
       },
-      sendText: async ({ to, text }) => {
-        const config = getConfig();
+      sendText: async ({ to, text, accountId }) => {
+        const config = getConfig(accountId);
         if (!config?.corpId || !config?.corpSecret || !config?.agentId) {
           return { ok: false, error: new Error("WeCom not configured (check channels.wecom in clawdbot.json)") };
         }
@@ -66,8 +66,8 @@ export function createWecomDeliveryHandlers({
         });
         return { ok: true, provider: "wecom" };
       },
-      sendMedia: async ({ to, text, mediaUrl }) => {
-        const config = getConfig();
+      sendMedia: async ({ to, text, mediaUrl, accountId }) => {
+        const config = getConfig(accountId);
         if (!config?.corpId || !config?.corpSecret || !config?.agentId) {
           return { ok: false, error: new Error("WeCom not configured") };
         }
@@ -88,7 +88,7 @@ export function createWecomDeliveryHandlers({
     },
     inbound: {
       deliverReply: async ({ to, text, accountId, mediaUrl, mediaType }) => {
-        const config = getConfig();
+        const config = getConfig(accountId);
         if (!config?.corpId || !config?.corpSecret || !config?.agentId) {
           throw new Error("WeCom not configured (check channels.wecom in clawdbot.json)");
         }

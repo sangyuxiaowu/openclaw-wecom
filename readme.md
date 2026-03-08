@@ -3,7 +3,7 @@
 企业微信（WeCom）自建应用渠道插件。
 
 当前版本已对齐新版 OpenClaw 插件结构，支持：
-- 单账号配置（`channels.wecom`）
+- 单账号或多账号配置（`channels.wecom` / `channels.wecom.accounts`）
 - Webhook 入站 + API 出站
 - 文本/图片/文件/视频/语音消息
 - 语音文件自动转 `amr` 后发送
@@ -61,7 +61,42 @@ src/
 }
 ```
 
-### 2.2 环境变量（可选）
+### 2.2 多账号示例
+
+```json
+{
+	"channels": {
+		"wecom": {
+			"enabled": true,
+			"defaultAccount": "prod",
+			"proxyMode": "reverse",
+			"proxyUrl": "https://proxy.example.com/proxy/",
+			"accounts": {
+				"prod": {
+					"name": "生产账号",
+					"corpId": "wwxxxxxxxxxxxxxxxx",
+					"corpSecret": "xxxxxxxxxxxxxxxxxxxxxxxx",
+					"agentId": 1000002,
+					"callbackToken": "prod-token",
+					"callbackAesKey": "prod-aes-key",
+					"webhookPath": "/wecom/prod/callback"
+				},
+				"test": {
+					"name": "测试账号",
+					"corpId": "wwyyyyyyyyyyyyyyyy",
+					"corpSecret": "yyyyyyyyyyyyyyyyyyyyyyyy",
+					"agentId": 1000003,
+					"callbackToken": "test-token",
+					"callbackAesKey": "test-aes-key",
+					"webhookPath": "/wecom/test/callback"
+				}
+			}
+		}
+	}
+}
+```
+
+### 2.3 环境变量（可选）
 
 当未在 `channels.wecom` 中配置时，可通过环境变量注入：
 
@@ -75,12 +110,18 @@ src/
 - `WECOM_PROXY_URL`（兼容 `WECOM_PROXY` / `HTTPS_PROXY`）
 - `WECOM_HISTORY_LIMIT`（默认 `20`）
 
-### 2.3 代理模式说明
+### 2.4 默认账号说明
+
+- 未启用 `accounts` 时，插件按单账号模式工作，账号 ID 固定为 `default`。
+- 启用 `accounts` 后，可通过 `defaultAccount` 指定默认账号。
+- 顶层配置可作为多账号的公共默认值，具体账号中的同名字段会覆盖顶层值。
+
+### 2.5 代理模式说明
 
 - `forward`：`proxyUrl` 填写标准正向代理地址，例如 `http://127.0.0.1:7890` 或 `https://proxy.example.com`。
 - `reverse`：`proxyUrl` 填写反向代理基地址，例如 `https://proxy.example.com/proxy/`，插件会把企业微信 API 请求改写到该前缀下。
 
-### 2.4 热重载说明
+### 2.6 热重载说明
 
 - 修改 `proxyMode`、`proxyUrl`、`webhookPath` 后，通道热重载会重新应用配置，无需整网关重启。
 - `webhookPath` 变更后，插件会在通道重启时注销旧路由并注册新路由。

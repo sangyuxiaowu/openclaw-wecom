@@ -53,7 +53,7 @@ export function createWecomChannelRuntime({ pluginVersion, execFileAsync }) {
   });
 
   const deliveryHandlers = createWecomDeliveryHandlers({
-    getConfig: () => getWecomConfig(),
+    getConfig: (accountId) => getWecomConfig(undefined, accountId),
     fetchMediaFromUrl,
     resolveWecomMediaType,
     uploadWecomMedia,
@@ -65,7 +65,7 @@ export function createWecomChannelRuntime({ pluginVersion, execFileAsync }) {
   });
 
   const sessionHistories = new Map();
-  const resolvedConfig = getWecomConfig();
+  const resolvedConfig = getWecomConfig(undefined, null);
   const configuredHistoryLimit = resolvedConfig?.historyLimit;
   const DEFAULT_HISTORY_LIMIT =
     Number.isFinite(configuredHistoryLimit) && configuredHistoryLimit >= 0

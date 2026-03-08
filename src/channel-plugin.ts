@@ -18,22 +18,109 @@ export function createWecomChannelPlugin({ deliveryHandlers, registerWebhookRout
 
   const resolveRootConfig = (cfg) => cfg?.channels?.wecom ?? null;
 
-  const resolveAccountFromConfig = (cfg) => {
+  const normalizeAccountId = (accountId) => String(accountId || "").trim() || defaultAccountId;
+
+  const resolveAccountsConfig = (cfg) => {
+    const accounts = resolveRootConfig(cfg)?.accounts;
+    if (!accounts || typeof accounts !== "object") {
+      return null;
+    }
+    return accounts;
+  };
+
+  const listConfiguredAccountIds = (cfg) => {
+    const accounts = resolveAccountsConfig(cfg);
+    if (!accounts) {
+      return [];
+    }
+    return Object.keys(accounts)
+      .map((accountId) => normalizeAccountId(accountId))
+      .filter(Boolean)
+      .sort((left, right) => left.localeCompare(right));
+  };
+
+  const resolveDefaultConfiguredAccountId = (cfg) => {
     const root = resolveRootConfig(cfg);
+    const configuredAccountIds = listConfiguredAccountIds(cfg);
+    if (configuredAccountIds.length === 0) {
+      return defaultAccountId;
+    }
+
+    const preferred = String(root?.defaultAccount || "").trim();
+    if (preferred && configuredAccountIds.includes(preferred)) {
+      return preferred;
+    }
+
+    return configuredAccountIds[0];
+  };
+
+  const resolveRequestedAccountId = (cfg, accountId) => {
+    const configuredAccountIds = listConfiguredAccountIds(cfg);
+    if (configuredAccountIds.length === 0) {
+      return defaultAccountId;
+    }
+
+    const requested = String(accountId || "").trim();
+    if (requested && configuredAccountIds.includes(requested)) {
+      return requested;
+    }
+
+    return resolveDefaultConfiguredAccountId(cfg);
+  };
+
+  const pickConfiguredValue = (...values) => {
+    for (const value of values) {
+      if (value != null && value !== "") {
+        return value;
+      }
+    }
+    return null;
+  };
+
+  const resolveBaseAccountShape = (configLike) => {
+    if (!configLike || typeof configLike !== "object") {
+      return null;
+    }
+
     return {
-      accountId: defaultAccountId,
-      enabled: root?.enabled !== false,
-      configured: Boolean(root?.corpId && root?.corpSecret && root?.agentId),
-      name: root?.name,
-      corpId: root?.corpId,
-      webhookPath: root?.webhookPath || "/wecom/callback",
-      proxyMode: root?.proxyMode || "forward",
-      proxyUrl: root?.proxyUrl,
-      historyLimit: root?.historyLimit,
-      callbackToken: root?.callbackToken,
-      callbackAesKey: root?.callbackAesKey,
-      agentId: root?.agentId,
-      corpSecret: root?.corpSecret,
+      enabled: configLike.enabled !== false,
+      name: configLike.name,
+      corpId: configLike.corpId,
+      webhookPath: configLike.webhookPath || "/wecom/callback",
+      proxyMode: configLike.proxyMode || "forward",
+      proxyUrl: configLike.proxyUrl,
+      historyLimit: configLike.historyLimit,
+      callbackToken: configLike.callbackToken,
+      callbackAesKey: configLike.callbackAesKey,
+      agentId: configLike.agentId,
+      corpSecret: configLike.corpSecret,
+    };
+  };
+
+  const resolveAccountFromConfig = (cfg, accountId) => {
+    const root = resolveRootConfig(cfg);
+    const resolvedAccountId = resolveRequestedAccountId(cfg, accountId);
+    const accountOverrides = resolveAccountsConfig(cfg)?.[resolvedAccountId];
+    const rootResolved = resolveBaseAccountShape(root);
+    const accountResolved = resolveBaseAccountShape(accountOverrides);
+    const corpId = pickConfiguredValue(accountResolved?.corpId, rootResolved?.corpId);
+    const corpSecret = pickConfiguredValue(accountResolved?.corpSecret, rootResolved?.corpSecret);
+    const agentId = pickConfiguredValue(accountResolved?.agentId, rootResolved?.agentId);
+
+    return {
+      accountId: resolvedAccountId,
+      enabled: rootResolved?.enabled !== false && accountResolved?.enabled !== false,
+      configured: Boolean(corpId && corpSecret && agentId),
+      name: pickConfiguredValue(accountResolved?.name, rootResolved?.name),
+      corpId,
+      webhookPath: pickConfiguredValue(accountResolved?.webhookPath, rootResolved?.webhookPath, "/wecom/callback"),
+      proxyMode: pickConfiguredValue(accountResolved?.proxyMode, rootResolved?.proxyMode, "forward"),
+      proxyUrl: pickConfiguredValue(accountResolved?.proxyUrl, rootResolved?.proxyUrl),
+      historyLimit: pickConfiguredValue(accountResolved?.historyLimit, rootResolved?.historyLimit),
+      callbackToken: pickConfiguredValue(accountResolved?.callbackToken, rootResolved?.callbackToken),
+      callbackAesKey: pickConfiguredValue(accountResolved?.callbackAesKey, rootResolved?.callbackAesKey),
+      agentId,
+      corpSecret,
     };
   };
 
@@ -64,6 +151,7 @@ export function createWecomChannelPlugin({ deliveryHandlers, registerWebhookRout
         additionalProperties: false,
         properties: {
           enabled: { type: "boolean" },
+          defaultAccount: { type: "string" },
           name: { type: "string" },
           corpId: { type: "string" },
           corpSecret: { type: "string" },
@@ -74,6 +162,26 @@ export function createWecomChannelPlugin({ deliveryHandlers, registerWebhookRout
           proxyMode: { type: "string", enum: ["forward", "reverse"] },
           proxyUrl: { type: "string" },
           historyLimit: { type: "integer", minimum: 0 },
+          accounts: {
+            type: "object",
+            additionalProperties: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                enabled: { type: "boolean" },
+                name: { type: "string" },
+                corpId: { type: "string" },
+                corpSecret: { type: "string" },
+                agentId: { type: "integer", minimum: 1 },
+                callbackToken: { type: "string" },
+                callbackAesKey: { type: "string" },
+                webhookPath: { type: "string" },
+                proxyMode: { type: "string", enum: ["forward", "reverse"] },
+                proxyUrl: { type: "string" },
+                historyLimit: { type: "integer", minimum: 0 },
+              },
+            },
+          },
         },
       },
     },
@@ -89,10 +197,36 @@ export function createWecomChannelPlugin({ deliveryHandlers, registerWebhookRout
       },
     },
     config: {
-      listAccountIds: (cfg) => (resolveRootConfig(cfg)?.corpId ? [defaultAccountId] : []),
+      listAccountIds: (cfg) => {
+        const configuredAccountIds = listConfiguredAccountIds(cfg);
+        if (configuredAccountIds.length > 0) {
+          return configuredAccountIds;
+        }
+        return resolveRootConfig(cfg)?.corpId ? [defaultAccountId] : [];
+      },
       resolveAccount: (cfg, accountId) => resolveAccountFromConfig(cfg, accountId),
-      defaultAccountId: () => defaultAccountId,
+      defaultAccountId: (cfg) => resolveDefaultConfiguredAccountId(cfg),
       setAccountEnabled: ({ cfg, accountId, enabled }) => {
+        const normalizedAccountId = resolveRequestedAccountId(cfg, accountId);
+        if (listConfiguredAccountIds(cfg).length > 0) {
+          return {
+            ...cfg,
+            channels: {
+              ...cfg.channels,
+              wecom: {
+                ...cfg.channels?.wecom,
+                accounts: {
+                  ...cfg.channels?.wecom?.accounts,
+                  [normalizedAccountId]: {
+                    ...cfg.channels?.wecom?.accounts?.[normalizedAccountId],
+                    enabled,
+                  },
+                },
+              },
+            },
+          };
+        }
+
         return {
           ...cfg,
           channels: {
@@ -105,6 +239,31 @@ export function createWecomChannelPlugin({ deliveryHandlers, registerWebhookRout
         };
       },
       deleteAccount: ({ cfg, accountId }) => {
+        const normalizedAccountId = resolveRequestedAccountId(cfg, accountId);
+        if (listConfiguredAccountIds(cfg).length > 0) {
+          const next = { ...cfg };
+          const nextChannels = { ...(cfg.channels || {}) };
+          const nextWecom = { ...(cfg.channels?.wecom || {}) };
+          const nextAccounts = { ...(cfg.channels?.wecom?.accounts || {}) };
+          delete nextAccounts[normalizedAccountId];
+          if (Object.keys(nextAccounts).length > 0) {
+            nextWecom.accounts = nextAccounts;
+            if (nextWecom.defaultAccount === normalizedAccountId) {
+              delete nextWecom.defaultAccount;
+            }
+            nextChannels.wecom = nextWecom;
+            next.channels = nextChannels;
+          } else {
+            delete nextChannels.wecom;
+            if (Object.keys(nextChannels).length > 0) {
+              next.channels = nextChannels;
+            } else {
+              delete next.channels;
+            }
+          }
+          return next;
+        }
+
         const next = { ...cfg };
         const nextChannels = { ...(cfg.channels || {}) };
         delete nextChannels.wecom;
@@ -129,8 +288,29 @@ export function createWecomChannelPlugin({ deliveryHandlers, registerWebhookRout
       }),
     },
     setup: {
-      resolveAccountId: () => defaultAccountId,
-      applyAccountConfig: ({ cfg }) => {
+      resolveAccountId: ({ cfg }) => resolveDefaultConfiguredAccountId(cfg),
+      applyAccountConfig: ({ cfg, accountId }) => {
+        const normalizedAccountId = resolveRequestedAccountId(cfg, accountId);
+        if (listConfiguredAccountIds(cfg).length > 0) {
+          return {
+            ...cfg,
+            channels: {
+              ...cfg.channels,
+              wecom: {
+                ...cfg.channels?.wecom,
+                defaultAccount: normalizedAccountId,
+                accounts: {
+                  ...cfg.channels?.wecom?.accounts,
+                  [normalizedAccountId]: {
+                    ...cfg.channels?.wecom?.accounts?.[normalizedAccountId],
+                    enabled: true,
+                  },
+                },
+              },
+            },
+          };
+        }
+
         return {
           ...cfg,
           channels: {

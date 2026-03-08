@@ -6,6 +6,7 @@
     "additionalProperties": false,
     "properties": {
       "enabled": { "type": "boolean", "description": "是否启用 WeCom 渠道" },
+      "defaultAccount": { "type": "string", "description": "多账号模式下默认使用的账号 ID" },
       "name": { "type": "string", "description": "默认账号显示名" },
       "corpId": { "type": "string", "description": "企业微信 Corp ID" },
       "corpSecret": { "type": "string", "description": "企业微信 Corp Secret" },
@@ -31,6 +32,38 @@
         "type": "integer",
         "minimum": 0,
         "description": "对话历史上限（默认 20）"
+      },
+      "accounts": {
+        "type": "object",
+        "description": "多账号配置，键为账号 ID；账号配置会覆盖顶层默认值",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "description": "是否启用该账号" },
+            "name": { "type": "string", "description": "账号显示名" },
+            "corpId": { "type": "string", "description": "企业微信 Corp ID" },
+            "corpSecret": { "type": "string", "description": "企业微信 Corp Secret" },
+            "agentId": { "type": "integer", "description": "企业微信 Agent ID" },
+            "callbackToken": { "type": "string", "description": "回调 Token" },
+            "callbackAesKey": { "type": "string", "description": "回调 AES Key" },
+            "webhookPath": { "type": "string", "description": "Webhook 路径" },
+            "proxyMode": {
+              "type": "string",
+              "enum": ["forward", "reverse"],
+              "description": "代理模式：forward=正向代理，reverse=反向代理路径转发"
+            },
+            "proxyUrl": {
+              "type": "string",
+              "description": "代理地址；forward 模式填写代理服务器地址，reverse 模式填写反向代理基地址"
+            },
+            "historyLimit": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "对话历史上限（默认 20）"
+            }
+          }
+        }
       }
     }
   }

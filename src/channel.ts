@@ -26,16 +26,17 @@ const {
   execFileAsync,
 });
 
-const registerWebhookRoutesForAccount = ({ webhookPath }) => {
+const registerWebhookRoutesForAccount = ({ accountId, webhookPath }) => {
   return registerWecomWebhookRoutes({
     api: gatewayRuntimeApi,
-    cfg: getWecomConfig(gatewayRuntimeApi),
+    cfg: getWecomConfig(gatewayRuntimeApi, accountId),
     getWecomConfig,
     processInboundMessage,
     computeMsgSignature,
     decryptWecom,
     readRequestBody,
     parseIncomingXml,
+    accountId,
     webhookPathOverride: webhookPath,
   });
 };

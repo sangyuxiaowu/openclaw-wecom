@@ -20,6 +20,58 @@ export function createWecomConfigService({ requireEnv, asNumber, getRuntimeConfi
     return cfg?.channels?.wecom ?? null;
   }
 
+  function normalizeAccountId(accountId) {
+    const normalized = String(accountId || "").trim();
+    return normalized || defaultAccountId;
+  }
+
+  function resolveAccountsConfig(channelConfig) {
+    const accounts = channelConfig?.accounts;
+    if (!accounts || typeof accounts !== "object") {
+      return null;
+    }
+    return accounts;
+  }
+
+  function listConfiguredAccountIds(channelConfig) {
+    const accounts = resolveAccountsConfig(channelConfig);
+    if (!accounts) {
+      return [];
+    }
+    return Object.keys(accounts)
+      .map((accountId) => normalizeAccountId(accountId))
+      .filter(Boolean)
+      .sort((left, right) => left.localeCompare(right));
+  }
+
+  function resolveDefaultConfiguredAccountId(channelConfig) {
+    const configuredAccountIds = listConfiguredAccountIds(channelConfig);
+    if (configuredAccountIds.length === 0) {
+      return defaultAccountId;
+    }
+
+    const preferred = String(channelConfig?.defaultAccount || "").trim();
+    if (preferred && configuredAccountIds.includes(preferred)) {
+      return preferred;
+    }
+
+    return configuredAccountIds[0];
+  }
+
+  function resolveRequestedAccountId(channelConfig, accountId) {
+    const configuredAccountIds = listConfiguredAccountIds(channelConfig);
+    if (configuredAccountIds.length === 0) {
+      return defaultAccountId;
+    }
+
+    const requested = String(accountId || "").trim();
+    if (requested && configuredAccountIds.includes(requested)) {
+      return requested;
+    }
+
+    return resolveDefaultConfiguredAccountId(channelConfig);
+  }
+
   function resolveBaseConfig(channelConfig) {
     if (!channelConfig || typeof channelConfig !== "object") {
       return null;
@@ -38,6 +90,21 @@ export function createWecomConfigService({ requireEnv, asNumber, getRuntimeConfi
       enabled: channelConfig.enabled !== false,
       name: channelConfig.name,
     };
+  }
+
+  function resolveAccountOverrideConfig(channelConfig, accountId) {
+    const accounts = resolveAccountsConfig(channelConfig);
+    if (!accounts) {
+      return null;
+    }
+
+    const resolvedAccountId = resolveRequestedAccountId(channelConfig, accountId);
+    const accountConfig = accounts?.[resolvedAccountId];
+    if (!accountConfig || typeof accountConfig !== "object") {
+      return null;
+    }
+
+    return resolveBaseConfig(accountConfig);
   }
 
   function resolveEnvConfig(cfg) {
@@ -85,35 +152,62 @@ export function createWecomConfigService({ requireEnv, asNumber, getRuntimeConfi
   function getWecomConfig(api, accountId = null) {
     const cfg = resolveRuntimeConfig(api);
     const channelConfig = resolveChannelConfig(cfg);
-    const baseResolved = resolveBaseConfig(channelConfig);
-    const envResolved = resolveEnvConfig(cfg);
+    const resolvedAccountId = resolveRequestedAccountId(channelConfig, accountId);
+    const rootResolved = resolveBaseConfig(channelConfig);
+    const accountResolved = resolveAccountOverrideConfig(channelConfig, resolvedAccountId);
+    const hasConfiguredAccounts = listConfiguredAccountIds(channelConfig).length > 0;
+    const envResolved = hasConfiguredAccounts ? null : resolveEnvConfig(cfg);
 
-    const corpId = pickConfiguredValue(baseResolved?.corpId, envResolved?.corpId);
-    const corpSecret = pickConfiguredValue(baseResolved?.corpSecret, envResolved?.corpSecret);
-    const agentId = asNumber(pickConfiguredValue(baseResolved?.agentId, envResolved?.agentId));
+    const corpId = pickConfiguredValue(accountResolved?.corpId, rootResolved?.corpId, envResolved?.corpId);
+    const corpSecret = pickConfiguredValue(accountResolved?.corpSecret, rootResolved?.corpSecret, envResolved?.corpSecret);
+    const agentId = asNumber(
+      pickConfiguredValue(accountResolved?.agentId, rootResolved?.agentId, envResolved?.agentId)
+    );
 
     if (!corpId || !corpSecret || !agentId) {
       return null;
     }
 
     return {
-      accountId: defaultAccountId,
+      accountId: resolvedAccountId,
       corpId,
       corpSecret,
       agentId,
-      callbackToken: pickConfiguredValue(baseResolved?.callbackToken, envResolved?.callbackToken),
-      callbackAesKey: pickConfiguredValue(baseResolved?.callbackAesKey, envResolved?.callbackAesKey),
-      webhookPath: pickConfiguredValue(baseResolved?.webhookPath, envResolved?.webhookPath, "/wecom/callback"),
-      proxyMode: pickConfiguredValue(baseResolved?.proxyMode, envResolved?.proxyMode, "forward"),
-      proxyUrl: pickConfiguredValue(baseResolved?.proxyUrl, envResolved?.proxyUrl),
-      historyLimit: asNumber(pickConfiguredValue(baseResolved?.historyLimit, envResolved?.historyLimit)),
-      enabled: baseResolved?.enabled !== false,
-      name: pickConfiguredValue(baseResolved?.name),
+      callbackToken: pickConfiguredValue(
+        accountResolved?.callbackToken,
+        rootResolved?.callbackToken,
+        envResolved?.callbackToken
+      ),
+      callbackAesKey: pickConfiguredValue(
+        accountResolved?.callbackAesKey,
+        rootResolved?.callbackAesKey,
+        envResolved?.callbackAesKey
+      ),
+      webhookPath: pickConfiguredValue(
+        accountResolved?.webhookPath,
+        rootResolved?.webhookPath,
+        envResolved?.webhookPath,
+        "/wecom/callback"
+      ),
+      proxyMode: pickConfiguredValue(accountResolved?.proxyMode, rootResolved?.proxyMode, envResolved?.proxyMode, "forward"),
+      proxyUrl: pickConfiguredValue(accountResolved?.proxyUrl, rootResolved?.proxyUrl, envResolved?.proxyUrl),
+      historyLimit: asNumber(
+        pickConfiguredValue(accountResolved?.historyLimit, rootResolved?.historyLimit, envResolved?.historyLimit)
+      ),
+      enabled: rootResolved?.enabled !== false && accountResolved?.enabled !== false,
+      name: pickConfiguredValue(accountResolved?.name, rootResolved?.name),
     };
   }
 
   function listWecomAccountIds(api) {
-    const config = getWecomConfig(api);
+    const cfg = resolveRuntimeConfig(api);
+    const channelConfig = resolveChannelConfig(cfg);
+    const configuredAccountIds = listConfiguredAccountIds(channelConfig);
+    if (configuredAccountIds.length > 0) {
+      return configuredAccountIds;
+    }
+
+    const config = getWecomConfig(api, defaultAccountId);
     return config ? [defaultAccountId] : [];
   }
 

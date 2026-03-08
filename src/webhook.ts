@@ -23,6 +23,7 @@ export function registerWecomWebhookRoutes({
   decryptWecom,
   readRequestBody,
   parseIncomingXml,
+  accountId,
   webhookPathOverride,
 }) {
   const configuredWebhookPath = webhookPathOverride ?? api?.config?.channels?.wecom?.webhookPath;
@@ -32,7 +33,7 @@ export function registerWecomWebhookRoutes({
   const routePaths = Array.from(new Set([normalizedPath, defaultPath]));
 
   const handler = async (req, res) => {
-    const config = getWecomConfig(api);
+    const config = getWecomConfig(api, accountId);
     const token = config?.callbackToken;
     const aesKey = config?.callbackAesKey;
 
@@ -115,20 +116,21 @@ export function registerWecomWebhookRoutes({
     const msgType = msgObj.MsgType;
 
     if (msgType === "text" && textContent) {
-      processInboundMessage({ api, fromUser, content: textContent, msgType: "text", chatId, isGroupChat }).catch((err) => {
+      processInboundMessage({ api, accountId, fromUser, content: textContent, msgType: "text", chatId, isGroupChat }).catch((err) => {
         api.logger.error?.(`wecom: async message processing failed: ${err.message}`);
       });
     } else if (msgType === "image" && msgObj?.MediaId) {
-      processInboundMessage({ api, fromUser, mediaId: msgObj.MediaId, msgType: "image", picUrl: msgObj.PicUrl, chatId, isGroupChat }).catch((err) => {
+      processInboundMessage({ api, accountId, fromUser, mediaId: msgObj.MediaId, msgType: "image", picUrl: msgObj.PicUrl, chatId, isGroupChat }).catch((err) => {
         api.logger.error?.(`wecom: async image processing failed: ${err.message}`);
       });
     } else if (msgType === "voice" && msgObj?.MediaId) {
-      processInboundMessage({ api, fromUser, mediaId: msgObj.MediaId, msgType: "voice", recognition: asText(msgObj.Recognition), chatId, isGroupChat }).catch((err) => {
+      processInboundMessage({ api, accountId, fromUser, mediaId: msgObj.MediaId, msgType: "voice", recognition: asText(msgObj.Recognition), chatId, isGroupChat }).catch((err) => {
         api.logger.error?.(`wecom: async voice processing failed: ${err.message}`);
       });
     } else if (msgType === "video" && msgObj?.MediaId) {
       processInboundMessage({
         api,
+        accountId,
         fromUser,
         mediaId: msgObj.MediaId,
         msgType: "video",
@@ -141,6 +143,7 @@ export function registerWecomWebhookRoutes({
     } else if (msgType === "file" && msgObj?.MediaId) {
       processInboundMessage({
         api,
+        accountId,
         fromUser,
         mediaId: msgObj.MediaId,
         msgType: "file",
@@ -154,6 +157,7 @@ export function registerWecomWebhookRoutes({
     } else if (msgType === "link") {
       processInboundMessage({
         api,
+        accountId,
         fromUser,
         msgType: "link",
         linkTitle: asText(msgObj.Title),
@@ -178,7 +182,7 @@ export function registerWecomWebhookRoutes({
       auth: "plugin",
       replaceExisting: true,
       pluginId: "wecom",
-      accountId: getWecomConfig(api)?.accountId,
+      accountId: accountId || getWecomConfig(api)?.accountId,
       source: "wecom.webhook",
       log: (msg) => api.logger.info?.(msg),
       handler,
