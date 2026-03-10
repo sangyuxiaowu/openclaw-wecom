@@ -152,51 +152,65 @@ export function createWecomConfigService({ requireEnv, asNumber, getRuntimeConfi
   function getWecomConfig(api, accountId = null) {
     const cfg = resolveRuntimeConfig(api);
     const channelConfig = resolveChannelConfig(cfg);
+    const configuredAccountIds = listConfiguredAccountIds(channelConfig);
     const resolvedAccountId = resolveRequestedAccountId(channelConfig, accountId);
     const rootResolved = resolveBaseConfig(channelConfig);
-    const accountResolved = resolveAccountOverrideConfig(channelConfig, resolvedAccountId);
-    const hasConfiguredAccounts = listConfiguredAccountIds(channelConfig).length > 0;
+    const hasConfiguredAccounts = configuredAccountIds.length > 0;
     const envResolved = hasConfiguredAccounts ? null : resolveEnvConfig(cfg);
 
-    const corpId = pickConfiguredValue(accountResolved?.corpId, rootResolved?.corpId, envResolved?.corpId);
-    const corpSecret = pickConfiguredValue(accountResolved?.corpSecret, rootResolved?.corpSecret, envResolved?.corpSecret);
-    const agentId = asNumber(
-      pickConfiguredValue(accountResolved?.agentId, rootResolved?.agentId, envResolved?.agentId)
-    );
+    const candidateAccountIds = hasConfiguredAccounts
+      ? [resolvedAccountId, ...configuredAccountIds.filter((id) => id !== resolvedAccountId)]
+      : [resolvedAccountId];
 
-    if (!corpId || !corpSecret || !agentId) {
-      return null;
+    for (const candidateAccountId of candidateAccountIds) {
+      const accountResolved = resolveAccountOverrideConfig(channelConfig, candidateAccountId);
+      const corpId = pickConfiguredValue(accountResolved?.corpId, rootResolved?.corpId, envResolved?.corpId);
+      const corpSecret = pickConfiguredValue(
+        accountResolved?.corpSecret,
+        rootResolved?.corpSecret,
+        envResolved?.corpSecret
+      );
+      const agentId = asNumber(
+        pickConfiguredValue(accountResolved?.agentId, rootResolved?.agentId, envResolved?.agentId)
+      );
+      const enabled = rootResolved?.enabled !== false && accountResolved?.enabled !== false;
+
+      if (!corpId || !corpSecret || !agentId || !enabled) {
+        continue;
+      }
+
+      return {
+        accountId: candidateAccountId,
+        corpId,
+        corpSecret,
+        agentId,
+        callbackToken: pickConfiguredValue(
+          accountResolved?.callbackToken,
+          rootResolved?.callbackToken,
+          envResolved?.callbackToken
+        ),
+        callbackAesKey: pickConfiguredValue(
+          accountResolved?.callbackAesKey,
+          rootResolved?.callbackAesKey,
+          envResolved?.callbackAesKey
+        ),
+        webhookPath: pickConfiguredValue(
+          accountResolved?.webhookPath,
+          rootResolved?.webhookPath,
+          envResolved?.webhookPath,
+          "/wecom/callback"
+        ),
+        proxyMode: pickConfiguredValue(accountResolved?.proxyMode, rootResolved?.proxyMode, envResolved?.proxyMode, "forward"),
+        proxyUrl: pickConfiguredValue(accountResolved?.proxyUrl, rootResolved?.proxyUrl, envResolved?.proxyUrl),
+        historyLimit: asNumber(
+          pickConfiguredValue(accountResolved?.historyLimit, rootResolved?.historyLimit, envResolved?.historyLimit)
+        ),
+        enabled,
+        name: pickConfiguredValue(accountResolved?.name, rootResolved?.name),
+      };
     }
 
-    return {
-      accountId: resolvedAccountId,
-      corpId,
-      corpSecret,
-      agentId,
-      callbackToken: pickConfiguredValue(
-        accountResolved?.callbackToken,
-        rootResolved?.callbackToken,
-        envResolved?.callbackToken
-      ),
-      callbackAesKey: pickConfiguredValue(
-        accountResolved?.callbackAesKey,
-        rootResolved?.callbackAesKey,
-        envResolved?.callbackAesKey
-      ),
-      webhookPath: pickConfiguredValue(
-        accountResolved?.webhookPath,
-        rootResolved?.webhookPath,
-        envResolved?.webhookPath,
-        "/wecom/callback"
-      ),
-      proxyMode: pickConfiguredValue(accountResolved?.proxyMode, rootResolved?.proxyMode, envResolved?.proxyMode, "forward"),
-      proxyUrl: pickConfiguredValue(accountResolved?.proxyUrl, rootResolved?.proxyUrl, envResolved?.proxyUrl),
-      historyLimit: asNumber(
-        pickConfiguredValue(accountResolved?.historyLimit, rootResolved?.historyLimit, envResolved?.historyLimit)
-      ),
-      enabled: rootResolved?.enabled !== false && accountResolved?.enabled !== false,
-      name: pickConfiguredValue(accountResolved?.name, rootResolved?.name),
-    };
+    return null;
   }
 
   function listWecomAccountIds(api) {

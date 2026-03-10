@@ -53,7 +53,20 @@ export function createWecomChannelRuntime({ pluginVersion, execFileAsync }) {
   });
 
   const deliveryHandlers = createWecomDeliveryHandlers({
-    getConfig: (accountId) => getWecomConfig(undefined, accountId),
+    getConfig: (cfgOrAccountId, maybeAccountId) => {
+      const hasCfgSnapshot = cfgOrAccountId && typeof cfgOrAccountId === "object";
+      const cfg = hasCfgSnapshot ? cfgOrAccountId : undefined;
+      const accountId = hasCfgSnapshot ? maybeAccountId : cfgOrAccountId;
+
+      if (cfg) {
+        const resolvedFromSnapshot = getWecomConfig({ config: cfg }, accountId);
+        if (resolvedFromSnapshot) {
+          return resolvedFromSnapshot;
+        }
+      }
+
+      return getWecomConfig(undefined, accountId);
+    },
     fetchMediaFromUrl,
     resolveWecomMediaType,
     uploadWecomMedia,

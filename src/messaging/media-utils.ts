@@ -39,7 +39,20 @@ function getExtensionFromFilename(filename) {
 export async function fetchMediaFromUrl(url) {
   if (isLikelyLocalPath(url)) {
     const filePath = resolveLocalPath(url);
-    const buffer = await readFile(filePath);
+    let buffer;
+    try {
+      buffer = await readFile(filePath);
+    } catch (err) {
+      const platform = process.platform;
+      const isUnixStyleAbsolute = filePath.startsWith("/");
+      const windowsPathHint =
+        platform === "win32" && isUnixStyleAbsolute
+          ? " On Windows, please use paths like C:/path/to/file.png or C:\\\\path\\\\to\\\\file.png."
+          : "";
+      throw new Error(
+        `Failed to read local media file: path=${filePath}, platform=${platform}, reason=${err?.message || String(err)}.${windowsPathHint}`
+      );
+    }
     const filename = getFilenameFromSource(filePath);
     const ext = getExtensionFromFilename(filename);
     const mimeMap = {

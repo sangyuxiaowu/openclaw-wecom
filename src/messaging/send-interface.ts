@@ -26,9 +26,6 @@ export function createWecomSendInterface({ sendWecomText, sendMediaByUrl }) {
         mediaError = err;
         const message = err?.message || String(err);
         logger?.warn?.(`wecom: failed to send media, to=${toUser}, source=${mediaUrl}, error=${message}`);
-        if (err?.stack) {
-          logger?.warn?.(`wecom: media send stack: ${err.stack}`);
-        }
       }
     }
 
