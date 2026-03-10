@@ -9,6 +9,22 @@ import { createWecomSendInterface } from "./messaging/send-interface.ts";
 
 const execFileAsync = promisify(execFile);
 
+function serializeError(err) {
+  if (!err) return { message: "Unknown error" };
+  if (err instanceof Error) {
+    return {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+      code: err.code,
+    };
+  }
+  if (typeof err === "string") {
+    return { message: err };
+  }
+  return { message: String(err) };
+}
+
 export function createWecomDeliveryHandlers({
   getConfig,
   fetchMediaFromUrl,
@@ -20,6 +36,11 @@ export function createWecomDeliveryHandlers({
   sendWecomVoice,
   sendWecomText,
 }) {
+  function formatNotConfiguredMessage(accountId) {
+    const normalized = String(accountId || "").trim() || "(default)";
+    return `WeCom not configured for accountId=${normalized} (check channels.wecom and channels.wecom.accounts)`;
+  }
+
   const sendMediaByUrl = createSendWecomMediaByUrl({
     fetchMediaFromUrl,
     resolveWecomMediaType,
@@ -47,48 +68,74 @@ export function createWecomDeliveryHandlers({
       deliveryMode: "direct",
       resolveTarget: ({ to }) => {
         const trimmed = to?.trim();
-        if (!trimmed) return { ok: false, error: new Error("WeCom requires --to <UserId>") };
+        if (!trimmed) return { ok: false, error: { message: "WeCom requires --to <UserId>" } };
         return { ok: true, to: trimmed };
       },
-      sendText: async ({ to, text, accountId }) => {
-        const config = getConfig(accountId);
+      sendText: async ({ cfg, to, text, accountId }) => {
+        const config = getConfig(cfg, accountId);
         if (!config?.corpId || !config?.corpSecret || !config?.agentId) {
-          return { ok: false, error: new Error("WeCom not configured (check channels.wecom in clawdbot.json)") };
+          return { ok: false, error: { message: formatNotConfiguredMessage(accountId) } };
         }
         const userId = to.startsWith("wecom:") ? to.slice(6) : to;
-        await sendInterface.sendText({
-          corpId: config.corpId,
-          corpSecret: config.corpSecret,
-          agentId: config.agentId,
-          toUser: userId,
-          text,
-          logger: console,
-        });
-        return { ok: true, provider: "wecom" };
+        try {
+          await sendInterface.sendText({
+            corpId: config.corpId,
+            corpSecret: config.corpSecret,
+            agentId: config.agentId,
+            toUser: userId,
+            text,
+            logger: undefined,
+          });
+          return { ok: true, provider: "wecom" };
+        } catch (err) {
+          const error = serializeError(err);
+          console.warn?.(`wecom: outbound sendText failed, to=${userId}, error=${error.message}`);
+          return { ok: false, error, provider: "wecom" };
+        }
       },
-      sendMedia: async ({ to, text, mediaUrl, accountId }) => {
-        const config = getConfig(accountId);
+      sendMedia: async ({ cfg, to, text, mediaUrl, accountId }) => {
+        const config = getConfig(cfg, accountId);
         if (!config?.corpId || !config?.corpSecret || !config?.agentId) {
-          return { ok: false, error: new Error("WeCom not configured") };
+          return { ok: false, error: { message: formatNotConfiguredMessage(accountId) } };
         }
         const { corpId, corpSecret, agentId } = config;
         const userId = to.startsWith("wecom:") ? to.slice(6) : to;
-        await sendInterface.sendMediaAndText({
-          corpId,
-          corpSecret,
-          agentId,
-          toUser: userId,
-          mediaUrl,
-          text,
-          logger: console,
-          mediaFailTextFallback: mediaUrl ? `[文件: ${mediaUrl}]` : "",
-        });
-        return { ok: true, provider: "wecom" };
+        try {
+          const sendResult = await sendInterface.sendMediaAndText({
+            corpId,
+            corpSecret,
+            agentId,
+            toUser: userId,
+            mediaUrl,
+            text,
+            logger: undefined,
+            mediaFailTextFallback: mediaUrl ? `[文件: ${mediaUrl}]` : "",
+          });
+
+          if (mediaUrl && !sendResult.mediaSent) {
+            const error = serializeError(sendResult.mediaError);
+            console.warn?.(
+              `wecom: outbound sendMedia media phase failed, to=${userId}, source=${mediaUrl}, error=${error.message}`
+            );
+            return {
+              ok: false,
+              provider: "wecom",
+              error,
+              textSent: Boolean(sendResult.textSent),
+            };
+          }
+
+          return { ok: true, provider: "wecom", textSent: Boolean(sendResult.textSent) };
+        } catch (err) {
+          const error = serializeError(err);
+          console.warn?.(`wecom: outbound sendMedia failed, to=${userId}, source=${mediaUrl || "none"}, error=${error.message}`);
+          return { ok: false, error, provider: "wecom" };
+        }
       },
     },
     inbound: {
-      deliverReply: async ({ to, text, accountId, mediaUrl, mediaType }) => {
-        const config = getConfig(accountId);
+      deliverReply: async ({ cfg, to, text, accountId, mediaUrl, mediaType }) => {
+        const config = getConfig(cfg, accountId);
         if (!config?.corpId || !config?.corpSecret || !config?.agentId) {
           throw new Error("WeCom not configured (check channels.wecom in clawdbot.json)");
         }
@@ -101,7 +148,7 @@ export function createWecomDeliveryHandlers({
           toUser: userId,
           mediaUrl,
           text,
-          logger: console,
+          logger: undefined,
         });
 
         return { ok: true };

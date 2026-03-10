@@ -70,7 +70,7 @@ export function createSendWecomMediaByUrl({
       await sendWecomFile({ corpId, corpSecret, agentId, toUser, mediaId });
     }
 
-    logger?.info?.(`wecom: sent media from ${mediaUrl} as ${type}`);
+    logger?.info?.(`wecom: sent media from ${mediaUrl} as ${type}, to=${toUser}`);
     return true;
   };
 }

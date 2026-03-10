@@ -22,7 +22,13 @@ export async function sendApiMessage({ accessToken, body, errorPrefix }) {
   });
   const sendJson = await sendRes.json();
   if (sendJson?.errcode !== 0) {
-    throw new Error(`${errorPrefix}: ${JSON.stringify(sendJson)}`);
+    throw new Error(
+      `${errorPrefix}: errcode=${sendJson?.errcode}, errmsg=${sendJson?.errmsg || "unknown"}, payload=${JSON.stringify({
+        touser: body?.touser,
+        msgtype: body?.msgtype,
+        agentid: body?.agentid,
+      })}`
+    );
   }
   return sendJson;
 }
@@ -50,7 +56,9 @@ export async function uploadApiMedia({ accessToken, type, buffer, filename, cont
 
   const json = await res.json();
   if (json.errcode !== 0) {
-    throw new Error(`WeCom media upload failed: ${JSON.stringify(json)}`);
+    throw new Error(
+      `WeCom media upload failed: errcode=${json?.errcode}, errmsg=${json?.errmsg || "unknown"}, type=${type}, filename=${filename}, bytes=${buffer?.length || 0}, contentType=${normalizedContentType}`
+    );
   }
 
   return json;
@@ -61,13 +69,15 @@ export async function downloadApiMedia({ accessToken, mediaId }) {
 
   const res = await wecomFetch(mediaUrl);
   if (!res.ok) {
-    throw new Error(`Failed to download media: ${res.status}`);
+    throw new Error(`Failed to download media: status=${res.status}, mediaId=${mediaId}`);
   }
 
   const contentType = res.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {
     const json = await res.json();
-    throw new Error(`WeCom media download failed: ${JSON.stringify(json)}`);
+    throw new Error(
+      `WeCom media download failed: errcode=${json?.errcode}, errmsg=${json?.errmsg || "unknown"}, mediaId=${mediaId}`
+    );
   }
 
   const buffer = await res.arrayBuffer();
