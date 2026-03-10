@@ -19,8 +19,14 @@ export function createSendWecomMediaByUrl({
   return async function sendWecomMediaByUrl({ mediaUrl, corpId, corpSecret, agentId, toUser, logger }) {
     if (!mediaUrl) return false;
 
+    logger?.info?.(`wecom: preparing media send, to=${toUser}, source=${mediaUrl}`);
+
     const { buffer, contentType } = await fetchMediaFromUrl(mediaUrl);
     const { type, filename } = resolveWecomMediaType(mediaUrl);
+
+    logger?.info?.(
+      `wecom: media source loaded, type=${type}, filename=${filename}, bytes=${buffer?.length || 0}, contentType=${contentType || "unknown"}`
+    );
 
     let uploadBuffer = buffer;
     let uploadFilename = filename;
@@ -51,6 +57,10 @@ export function createSendWecomMediaByUrl({
       }
     }
 
+    logger?.info?.(
+      `wecom: uploading media, type=${type}, filename=${uploadFilename}, bytes=${uploadBuffer?.length || 0}, contentType=${uploadContentType || "unknown"}`
+    );
+
     const mediaId = await uploadWecomMedia({
       corpId,
       corpSecret,
@@ -59,6 +69,8 @@ export function createSendWecomMediaByUrl({
       filename: uploadFilename,
       contentType: uploadContentType,
     });
+
+    logger?.info?.(`wecom: media uploaded, mediaId=${mediaId}, type=${type}, to=${toUser}`);
 
     if (type === "image") {
       await sendWecomImage({ corpId, corpSecret, agentId, toUser, mediaId });
@@ -70,7 +82,7 @@ export function createSendWecomMediaByUrl({
       await sendWecomFile({ corpId, corpSecret, agentId, toUser, mediaId });
     }
 
-    logger?.info?.(`wecom: sent media from ${mediaUrl} as ${type}`);
+    logger?.info?.(`wecom: sent media from ${mediaUrl} as ${type}, to=${toUser}`);
     return true;
   };
 }

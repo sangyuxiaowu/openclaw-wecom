@@ -2,11 +2,46 @@
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 
+function isWindowsAbsolutePath(value) {
+  return /^[a-zA-Z]:[\\/]/.test(value) || value.startsWith("\\\\");
+}
+
+function isLikelyLocalPath(value) {
+  return value.startsWith("/") || value.startsWith("~") || isWindowsAbsolutePath(value);
+}
+
+function resolveLocalPath(value) {
+  if (value.startsWith("~")) {
+    return value.replace("~", homedir());
+  }
+  return value;
+}
+
+function getFilenameFromSource(source) {
+  try {
+    const parsed = new URL(source);
+    const pathname = decodeURIComponent(parsed.pathname || "");
+    const fromPath = pathname.split("/").filter(Boolean).pop();
+    return fromPath || "file";
+  } catch {
+    const normalized = source.replace(/\\/g, "/");
+    return normalized.split("/").filter(Boolean).pop() || "file";
+  }
+}
+
+function getExtensionFromFilename(filename) {
+  const cleanName = filename.split("?")[0].split("#")[0];
+  const idx = cleanName.lastIndexOf(".");
+  if (idx < 0) return "";
+  return cleanName.slice(idx + 1).toLowerCase();
+}
+
 export async function fetchMediaFromUrl(url) {
-  if (url.startsWith("/") || url.startsWith("~")) {
-    const filePath = url.startsWith("~") ? url.replace("~", homedir()) : url;
+  if (isLikelyLocalPath(url)) {
+    const filePath = resolveLocalPath(url);
     const buffer = await readFile(filePath);
-    const ext = filePath.split(".").pop()?.toLowerCase() || "";
+    const filename = getFilenameFromSource(filePath);
+    const ext = getExtensionFromFilename(filename);
     const mimeMap = {
       jpg: "image/jpeg",
       jpeg: "image/jpeg",
@@ -40,8 +75,8 @@ export async function fetchMediaFromUrl(url) {
 }
 
 export function resolveWecomMediaType(mediaUrl) {
-  const filename = mediaUrl.split("/").pop() || "file";
-  const ext = filename.split(".").pop()?.toLowerCase() || "";
+  const filename = getFilenameFromSource(mediaUrl);
+  const ext = getExtensionFromFilename(filename);
   const imageExts = ["jpg", "jpeg", "png", "gif", "webp", "bmp"];
   const videoExts = ["mp4", "mov", "avi"];
   const voiceExts = ["amr", "mp3", "wav"];
