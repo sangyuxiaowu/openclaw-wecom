@@ -2,7 +2,7 @@
 import { buildBaseChannelStatusSummary, createDefaultChannelRuntimeState } from "openclaw/plugin-sdk";
 import { configureWecomProxy } from "./wecom-api/fetch.ts";
 
-export function createWecomChannelPlugin({ deliveryHandlers, registerWebhookRoutesForAccount }) {
+export function createWecomChannelPlugin({ deliveryHandlers }) {
   const defaultAccountId = "default";
 
   function waitUntilAbort(signal) {
@@ -371,12 +371,6 @@ export function createWecomChannelPlugin({ deliveryHandlers, registerWebhookRout
           );
         }
 
-        const unregisterWebhookRoutes = await registerWebhookRoutesForAccount({
-          accountId,
-          webhookPath: account?.webhookPath,
-          log: ctx?.log,
-        });
-
         ctx?.setStatus?.({
           accountId,
           mode: "webhook",
@@ -386,7 +380,6 @@ export function createWecomChannelPlugin({ deliveryHandlers, registerWebhookRout
         });
         ctx?.log?.info?.(`[${accountId}] wecom gateway account started`);
         await waitUntilAbort(ctx?.abortSignal);
-        unregisterWebhookRoutes?.();
       },
       stopAccount: async (ctx) => {
         const accountId = ctx?.accountId || defaultAccountId;

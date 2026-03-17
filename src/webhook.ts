@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { normalizePluginHttpPath, registerPluginHttpRoute } from "openclaw/plugin-sdk";
 
 function asText(value) {
   if (typeof value === "string") return value;
@@ -14,26 +13,90 @@ function asText(value) {
   return "";
 }
 
+function normalizeWebhookPath(path, fallback = "/wecom/callback") {
+  const trimmed = typeof path === "string" ? path.trim() : "";
+  if (!trimmed) {
+    return fallback;
+  }
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
+function listConfiguredAccountIds(channelConfig) {
+  const accounts = channelConfig?.accounts;
+  if (!accounts || typeof accounts !== "object") {
+    return [];
+  }
+  return Object.keys(accounts)
+    .map((accountId) => String(accountId || "").trim())
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function resolveRouteBindings(api, getWecomConfig) {
+  const channelConfig = api?.config?.channels?.wecom;
+  const configuredAccountIds = listConfiguredAccountIds(channelConfig);
+  const defaultAccount = String(channelConfig?.defaultAccount || "").trim();
+  const bindingCandidates = [];
+
+  if (configuredAccountIds.length === 0) {
+    const config = getWecomConfig(api);
+    if (config) {
+      bindingCandidates.push({
+        path: normalizeWebhookPath(config.webhookPath),
+        accountId: config.accountId,
+        priority: 2,
+      });
+    }
+  } else {
+    for (const accountId of configuredAccountIds) {
+      const config = getWecomConfig(api, accountId);
+      if (!config) {
+        continue;
+      }
+      bindingCandidates.push({
+        path: normalizeWebhookPath(config.webhookPath),
+        accountId: config.accountId,
+        priority: accountId === defaultAccount ? 2 : 1,
+      });
+    }
+  }
+
+  bindingCandidates.push({ path: "/wecom/callback", accountId: null, priority: 0 });
+
+  const bindings = [];
+  const seen = new Set();
+  for (const candidate of bindingCandidates.sort((left, right) => right.priority - left.priority)) {
+    const key = `${candidate.path}::${candidate.accountId ?? ""}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    bindings.push(candidate);
+  }
+  return bindings;
+}
+
+function resolveAccountIdForPath(api, getWecomConfig, routePath) {
+  const normalizedPath = normalizeWebhookPath(routePath);
+  const bindings = resolveRouteBindings(api, getWecomConfig).filter(
+    (binding) => binding.path === normalizedPath,
+  );
+  return bindings[0]?.accountId ?? null;
+}
+
 export function registerWecomWebhookRoutes({
   api,
-  cfg,
   getWecomConfig,
   processInboundMessage,
   computeMsgSignature,
   decryptWecom,
   readRequestBody,
   parseIncomingXml,
-  accountId,
-  webhookPathOverride,
 }) {
-  const configuredWebhookPath = webhookPathOverride ?? api?.config?.channels?.wecom?.webhookPath;
-  const webhookPath = configuredWebhookPath ?? cfg?.webhookPath;
-  const normalizedPath = normalizePluginHttpPath(webhookPath, "/wecom/callback") ?? "/wecom/callback";
-  const defaultPath = "/wecom/callback";
-  const routePaths = Array.from(new Set([normalizedPath, defaultPath]));
 
-  const handler = async (req, res) => {
-    const config = getWecomConfig(api, accountId);
+  const createHandler = (routePath) => async (req, res) => {
+    const resolvedAccountId = resolveAccountIdForPath(api, getWecomConfig, routePath);
+    const config = getWecomConfig(api, resolvedAccountId);
     const token = config?.callbackToken;
     const aesKey = config?.callbackAesKey;
 
@@ -116,21 +179,21 @@ export function registerWecomWebhookRoutes({
     const msgType = msgObj.MsgType;
 
     if (msgType === "text" && textContent) {
-      processInboundMessage({ api, accountId, fromUser, content: textContent, msgType: "text", chatId, isGroupChat }).catch((err) => {
+      processInboundMessage({ api, accountId: config?.accountId, fromUser, content: textContent, msgType: "text", chatId, isGroupChat }).catch((err) => {
         api.logger.error?.(`wecom: async message processing failed: ${err.message}`);
       });
     } else if (msgType === "image" && msgObj?.MediaId) {
-      processInboundMessage({ api, accountId, fromUser, mediaId: msgObj.MediaId, msgType: "image", picUrl: msgObj.PicUrl, chatId, isGroupChat }).catch((err) => {
+      processInboundMessage({ api, accountId: config?.accountId, fromUser, mediaId: msgObj.MediaId, msgType: "image", picUrl: msgObj.PicUrl, chatId, isGroupChat }).catch((err) => {
         api.logger.error?.(`wecom: async image processing failed: ${err.message}`);
       });
     } else if (msgType === "voice" && msgObj?.MediaId) {
-      processInboundMessage({ api, accountId, fromUser, mediaId: msgObj.MediaId, msgType: "voice", recognition: asText(msgObj.Recognition), chatId, isGroupChat }).catch((err) => {
+      processInboundMessage({ api, accountId: config?.accountId, fromUser, mediaId: msgObj.MediaId, msgType: "voice", recognition: asText(msgObj.Recognition), chatId, isGroupChat }).catch((err) => {
         api.logger.error?.(`wecom: async voice processing failed: ${err.message}`);
       });
     } else if (msgType === "video" && msgObj?.MediaId) {
       processInboundMessage({
         api,
-        accountId,
+        accountId: config?.accountId,
         fromUser,
         mediaId: msgObj.MediaId,
         msgType: "video",
@@ -143,7 +206,7 @@ export function registerWecomWebhookRoutes({
     } else if (msgType === "file" && msgObj?.MediaId) {
       processInboundMessage({
         api,
-        accountId,
+        accountId: config?.accountId,
         fromUser,
         mediaId: msgObj.MediaId,
         msgType: "file",
@@ -157,7 +220,7 @@ export function registerWecomWebhookRoutes({
     } else if (msgType === "link") {
       processInboundMessage({
         api,
-        accountId,
+        accountId: config?.accountId,
         fromUser,
         msgType: "link",
         linkTitle: asText(msgObj.Title),
@@ -174,29 +237,20 @@ export function registerWecomWebhookRoutes({
     }
   };
 
-  const unregisters = routePaths.map((routePath) => {
-    const unregister = registerPluginHttpRoute({
+  const routePaths = Array.from(
+    new Set(resolveRouteBindings(api, getWecomConfig).map((binding) => binding.path)),
+  );
+
+  for (const routePath of routePaths) {
+    api.registerHttpRoute({
       path: routePath,
-      fallbackPath: routePath,
       match: "exact",
       auth: "plugin",
       replaceExisting: true,
-      pluginId: "wecom",
-      accountId: accountId || getWecomConfig(api)?.accountId,
-      source: "wecom.webhook",
-      log: (msg) => api.logger.info?.(msg),
-      handler,
+      handler: createHandler(routePath),
     });
     api.logger.info?.(`wecom: registered webhook route at ${routePath}`);
-    return () => {
-      unregister();
-      api.logger.info?.(`wecom: unregistered webhook route at ${routePath}`);
-    };
-  });
-
-  return () => {
-    for (const unregister of unregisters) {
-      unregister();
-    }
   };
+
+  return () => {};
 }

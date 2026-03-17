@@ -26,18 +26,15 @@ const {
   execFileAsync,
 });
 
-const registerWebhookRoutesForAccount = ({ accountId, webhookPath }) => {
+const registerWebhookRoutes = () => {
   return registerWecomWebhookRoutes({
     api: gatewayRuntimeApi,
-    cfg: getWecomConfig(gatewayRuntimeApi, accountId),
     getWecomConfig,
     processInboundMessage,
     computeMsgSignature,
     decryptWecom,
     readRequestBody,
     parseIncomingXml,
-    accountId,
-    webhookPathOverride: webhookPath,
   });
 };
 
@@ -45,12 +42,12 @@ let gatewayRuntimeApi = null;
 
 const wecomChannelPlugin = createWecomChannelPlugin({
   deliveryHandlers,
-  registerWebhookRoutesForAccount,
 });
 
 export default function register(api) {
   gatewayRuntimeApi = api;
   setGatewayRuntime(api.runtime);
+  registerWebhookRoutes();
 
   // 初始化配置
   const cfg = getWecomConfig(api);
