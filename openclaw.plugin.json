@@ -4,66 +4,67 @@
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {
-      "enabled": { "type": "boolean", "description": "是否启用 WeCom 渠道" },
-      "defaultAccount": { "type": "string", "description": "多账号模式下默认使用的账号 ID" },
-      "name": { "type": "string", "description": "默认账号显示名" },
-      "corpId": { "type": "string", "description": "企业微信 Corp ID" },
-      "corpSecret": { "type": "string", "description": "企业微信 Corp Secret" },
-      "agentId": { "type": "integer", "description": "企业微信 Agent ID" },
-      "callbackToken": { "type": "string", "description": "回调 Token" },
-      "callbackAesKey": { "type": "string", "description": "回调 AES Key" },
-      "webhookPath": {
-        "type": "string",
-        "description": "Webhook 路径",
-        "default": "/wecom/callback"
-      },
-      "proxyMode": {
-        "type": "string",
-        "enum": ["forward", "reverse"],
-        "description": "代理模式：forward=正向代理，reverse=反向代理路径转发",
-        "default": "forward"
-      },
-      "proxyUrl": {
-        "type": "string",
-        "description": "代理地址；forward 模式填写代理服务器地址，reverse 模式填写反向代理基地址"
-      },
-      "historyLimit": {
-        "type": "integer",
-        "minimum": 0,
-        "description": "对话历史上限（默认 20）"
-      },
-      "accounts": {
+    "properties": {}
+  },
+  "channelConfigs": {
+    "wecom": {
+      "schema": {
         "type": "object",
-        "description": "多账号配置，键为账号 ID；账号配置会覆盖顶层默认值",
-        "additionalProperties": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "enabled": { "type": "boolean", "description": "是否启用该账号" },
-            "name": { "type": "string", "description": "账号显示名" },
-            "corpId": { "type": "string", "description": "企业微信 Corp ID" },
-            "corpSecret": { "type": "string", "description": "企业微信 Corp Secret" },
-            "agentId": { "type": "integer", "description": "企业微信 Agent ID" },
-            "callbackToken": { "type": "string", "description": "回调 Token" },
-            "callbackAesKey": { "type": "string", "description": "回调 AES Key" },
-            "webhookPath": { "type": "string", "description": "Webhook 路径" },
-            "proxyMode": {
-              "type": "string",
-              "enum": ["forward", "reverse"],
-              "description": "代理模式：forward=正向代理，reverse=反向代理路径转发"
-            },
-            "proxyUrl": {
-              "type": "string",
-              "description": "代理地址；forward 模式填写代理服务器地址，reverse 模式填写反向代理基地址"
-            },
-            "historyLimit": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "对话历史上限（默认 20）"
+        "additionalProperties": false,
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "defaultAccount": { "type": "string" },
+          "name": { "type": "string" },
+          "corpId": { "type": "string" },
+          "corpSecret": { "type": "string" },
+          "agentId": { "type": "integer", "minimum": 1 },
+          "callbackToken": { "type": "string" },
+          "callbackAesKey": { "type": "string" },
+          "webhookPath": { "type": "string" },
+          "proxyMode": { "type": "string", "enum": ["forward", "reverse"] },
+          "proxyUrl": { "type": "string" },
+          "historyLimit": { "type": "integer", "minimum": 0 },
+          "accounts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "name": { "type": "string" },
+                "corpId": { "type": "string" },
+                "corpSecret": { "type": "string" },
+                "agentId": { "type": "integer", "minimum": 1 },
+                "callbackToken": { "type": "string" },
+                "callbackAesKey": { "type": "string" },
+                "webhookPath": { "type": "string" },
+                "proxyMode": { "type": "string", "enum": ["forward", "reverse"] },
+                "proxyUrl": { "type": "string" },
+                "historyLimit": { "type": "integer", "minimum": 0 }
+              }
             }
           }
         }
+      },
+      "uiHints": {
+        "channels.wecom.corpId": { "label": "Corp ID" },
+        "channels.wecom.corpSecret": { "label": "Corp Secret", "sensitive": true },
+        "channels.wecom.agentId": { "label": "Agent ID" },
+        "channels.wecom.callbackToken": { "label": "Callback Token", "sensitive": true },
+        "channels.wecom.callbackAesKey": { "label": "Callback AES Key", "sensitive": true },
+        "channels.wecom.webhookPath": { "label": "Webhook Path", "placeholder": "/wecom/callback" },
+        "channels.wecom.proxyMode": { "label": "Proxy Mode" },
+        "channels.wecom.proxyUrl": { "label": "Proxy URL" },
+        "channels.wecom.historyLimit": { "label": "History Limit" },
+        "channels.wecom.accounts.*.corpId": { "label": "Corp ID" },
+        "channels.wecom.accounts.*.corpSecret": { "label": "Corp Secret", "sensitive": true },
+        "channels.wecom.accounts.*.agentId": { "label": "Agent ID" },
+        "channels.wecom.accounts.*.callbackToken": { "label": "Callback Token", "sensitive": true },
+        "channels.wecom.accounts.*.callbackAesKey": { "label": "Callback AES Key", "sensitive": true },
+        "channels.wecom.accounts.*.webhookPath": { "label": "Webhook Path", "placeholder": "/wecom/callback" },
+        "channels.wecom.accounts.*.proxyMode": { "label": "Proxy Mode" },
+        "channels.wecom.accounts.*.proxyUrl": { "label": "Proxy URL" },
+        "channels.wecom.accounts.*.historyLimit": { "label": "History Limit" }
       }
     }
   }

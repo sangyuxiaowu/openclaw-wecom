@@ -3,6 +3,7 @@ import {
   buildBaseChannelStatusSummary,
   createDefaultChannelRuntimeState,
 } from "openclaw/plugin-sdk/status-helpers";
+import { WecomChannelConfigSchema } from "./config-schema.ts";
 import { configureWecomProxy } from "./wecom-api/fetch.ts";
 
 export function createWecomChannelPlugin({ deliveryHandlers }) {
@@ -148,46 +149,7 @@ export function createWecomChannelPlugin({ deliveryHandlers }) {
       },
       markdown: true,
     },
-    configSchema: {
-      schema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          enabled: { type: "boolean" },
-          defaultAccount: { type: "string" },
-          name: { type: "string" },
-          corpId: { type: "string" },
-          corpSecret: { type: "string" },
-          agentId: { type: "integer", minimum: 1 },
-          callbackToken: { type: "string" },
-          callbackAesKey: { type: "string" },
-          webhookPath: { type: "string" },
-          proxyMode: { type: "string", enum: ["forward", "reverse"] },
-          proxyUrl: { type: "string" },
-          historyLimit: { type: "integer", minimum: 0 },
-          accounts: {
-            type: "object",
-            additionalProperties: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                enabled: { type: "boolean" },
-                name: { type: "string" },
-                corpId: { type: "string" },
-                corpSecret: { type: "string" },
-                agentId: { type: "integer", minimum: 1 },
-                callbackToken: { type: "string" },
-                callbackAesKey: { type: "string" },
-                webhookPath: { type: "string" },
-                proxyMode: { type: "string", enum: ["forward", "reverse"] },
-                proxyUrl: { type: "string" },
-                historyLimit: { type: "integer", minimum: 0 },
-              },
-            },
-          },
-        },
-      },
-    },
+    configSchema: WecomChannelConfigSchema,
     messaging: {
       targetResolver: {
         hint: "Use a WeCom UserId (e.g. ssq) or wecom:UserId",

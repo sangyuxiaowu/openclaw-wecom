@@ -123,8 +123,9 @@ src/
 
 ### 2.6 热重载说明
 
-- 修改 `proxyMode`、`proxyUrl`、`webhookPath` 后，通道热重载会重新应用配置，无需整网关重启。
-- `webhookPath` 变更后，插件会在通道重启时注销旧路由并注册新路由。
+- 修改 `proxyMode`、`proxyUrl`` 后，通道热重载会重新应用配置，无需整网关重启。
+- 修改 `proxyMode`、`proxyUrl` 后，通道热重载会重新应用配置，无需整网关重启。
+- `webhookPath` 变更后，需要重载插件或重启网关以重新注册 webhook 路由。
 
 ---
 
