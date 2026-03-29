@@ -1,5 +1,8 @@
 // @ts-nocheck
-import { buildBaseChannelStatusSummary, createDefaultChannelRuntimeState } from "openclaw/plugin-sdk";
+import {
+  buildBaseChannelStatusSummary,
+  createDefaultChannelRuntimeState,
+} from "openclaw/plugin-sdk/status-helpers";
 import { configureWecomProxy } from "./wecom-api/fetch.ts";
 
 export function createWecomChannelPlugin({ deliveryHandlers }) {

@@ -3,7 +3,7 @@ import {
   buildPendingHistoryContextFromMap,
   recordPendingHistoryEntry,
   clearHistoryEntriesIfEnabled,
-} from "openclaw/plugin-sdk";
+} from "openclaw/plugin-sdk/reply-history";
 import { writeFile, unlink, mkdir, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";

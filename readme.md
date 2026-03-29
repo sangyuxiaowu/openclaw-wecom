@@ -2,7 +2,7 @@
 
 企业微信（WeCom）自建应用渠道插件。
 
-当前版本已对齐新版 OpenClaw 插件结构，支持：
+当前版本已对齐 OpenClaw 2026.3.28 的插件结构，支持：
 - 单账号或多账号配置（`channels.wecom` / `channels.wecom.accounts`）
 - Webhook 入站 + API 出站
 - 文本/图片/文件/视频/语音消息
